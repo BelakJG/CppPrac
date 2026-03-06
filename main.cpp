@@ -1,10 +1,11 @@
 #include <iostream>
 #include <vector>
 #include <random>
+#include <chrono>
 #include "quicksort.cpp"
 using namespace std;
 
-int arr_size = 5000000;
+size_t arr_size = 5000000;
 
 int main() {
     // 1. Obtain a random seed from the hardware
@@ -21,8 +22,12 @@ int main() {
         arr.push_back(distrib(gen));
     }
 
-    cout << "Sorting " << arr_size << " numbers" << endl;
-    quicksort(arr);
+    auto start = std::chrono::steady_clock::now();
+    quicksort(arr, gen, distrib);
+    auto end = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+    cout << "Sorting " << arr_size << " numbers took " << duration.count() / 1000.0 << " seconds" << endl;
     is_sorted(arr);
 
     return 0;
