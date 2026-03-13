@@ -1,7 +1,7 @@
 #include <iterator>
 #include <iostream>
 #include <vector>
-#include <random>
+#include <algorithm>
 using namespace std;
 
 void is_sorted(vector<int> &arr) {
@@ -15,7 +15,7 @@ void is_sorted(vector<int> &arr) {
     cout << "Array is sorted" << endl;
 }
 
-void quicksort(vector<int> &arr, mt19937 &gen, uniform_int_distribution<> &distrib, int left = 0, int right = -1) {
+void quicksort(vector<int> &arr, int left = 0, int right = -1) {
     if (right == -1) {
         right = arr.size() - 1;
     }
@@ -25,13 +25,13 @@ void quicksort(vector<int> &arr, mt19937 &gen, uniform_int_distribution<> &distr
 
     while (left < right) {
         if (right - left <= 16) {
-            for (int i = left + 1; i <= right; i++) {
+            for (int i = left + 1; i <= right; ++i) {
                 int key = arr[i];
                 int j = i - 1;
 
                 while (j >= left && arr[j] > key) {
                     arr[j + 1] = arr[j];
-                    j--;
+                    --j;
                 }
 
                 arr[j + 1] = key;
@@ -39,8 +39,9 @@ void quicksort(vector<int> &arr, mt19937 &gen, uniform_int_distribution<> &distr
             return;
         }
 
-        int random_index = distrib(gen, uniform_int_distribution<>::param_type(left, right));
-        swap(arr[left], arr[random_index]);
+        int middle = (left + right) / 2;
+        int median_index = max(min(left, middle), min(max(left, middle), right));
+        swap(arr[left], arr[median_index]);
 
         int pivot = arr[left];
         int i = left - 1;
@@ -63,10 +64,10 @@ void quicksort(vector<int> &arr, mt19937 &gen, uniform_int_distribution<> &distr
         }
 
         if (j - left < right - j) {
-            quicksort(arr, gen, distrib, left, j);
+            quicksort(arr, left, j);
             left = j + 1;
         } else {
-            quicksort(arr, gen, distrib, j + 1, right);
+            quicksort(arr, j + 1, right);
             right = j;
         }
     }

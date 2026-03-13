@@ -23,7 +23,7 @@ int main() {
     }
 
     auto start = std::chrono::steady_clock::now();
-    quicksort(arr, gen, distrib);
+    quicksort(arr);
     auto end = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 
