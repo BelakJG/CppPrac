@@ -2,7 +2,7 @@
 #include <vector>
 #include <random>
 #include <chrono>
-#include "quicksort.cpp"
+#include "introsort.cpp"
 using namespace std;
 
 size_t arr_size = 5000000;
@@ -23,7 +23,7 @@ int main() {
     }
 
     auto start = std::chrono::steady_clock::now();
-    quicksort(arr);
+    introsort(arr);
     auto end = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 
