@@ -30,8 +30,6 @@ namespace {
             }
 
             int mid = left + ((right - left) / 2);
-
-            
             if (arr[mid] < arr[left]) {
                 swap(arr[mid], arr[left]);
             }
@@ -41,6 +39,7 @@ namespace {
             if (arr[right] < arr[mid]) {
                 swap(arr[right], arr[mid]);
             }
+            
             int pivot = arr[mid];
             int i = left - 1;
             int j = right + 1;

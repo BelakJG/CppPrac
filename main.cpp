@@ -2,6 +2,8 @@
 #include <vector>
 #include <random>
 #include <chrono>
+#include <sstream>
+#include <locale>
 #include "introsort.cpp"
 using namespace std;
 
@@ -27,7 +29,17 @@ int main() {
     auto end = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 
-    cout << "Sorting " << arr_size << " numbers took " << duration.count() / 1000.0 << " seconds" << endl;
+    stringstream ss;
+    try {
+        ss.imbue(locale("en_US.utf8"));
+    } catch (const runtime_error &e) {
+        cerr << "Locale not supported: " << e.what() << endl;
+    }
+
+    ss << arr_size;
+    string formatted_num = ss.str();
+
+    cout << "Sorting " << formatted_num << " numbers took " << duration.count() / 1000.0 << " seconds" << endl;
     is_sorted(arr);
 
     return 0;
