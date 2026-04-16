@@ -4,23 +4,14 @@
 #include <algorithm>
 #include <cmath>
 #include "heapsort.cpp"
+#include "insertionSort.cpp"
 using namespace std;
 
 namespace {
     void sort(vector<int> &arr, int left, int right, int depth) {
         while (left < right) {
             if (right - left <= 16) {
-                for (int i = left + 1; i <= right; ++i) {
-                    int key = arr[i];
-                    int j = i - 1;
-
-                    while (j >= left && arr[j] > key) {
-                        arr[j + 1] = arr[j];
-                        --j;
-                    }
-
-                    arr[j + 1] = key;
-                }
+                insertionSort(arr, left, right);
                 return;
             }
 
