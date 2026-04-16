@@ -4,7 +4,7 @@
 #include <chrono>
 #include <sstream>
 #include <locale>
-#include "introsort.cpp"
+#include "introsortQueue.cpp"
 using namespace std;
 
 size_t arr_size = 5000000;
@@ -25,7 +25,7 @@ int main() {
     }
 
     auto start = std::chrono::steady_clock::now();
-    introsort(arr);
+    introsortQueue(arr);
     auto end = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 
