@@ -6,36 +6,48 @@ using namespace std;
 
 int main()
 {
-    vector<Coords> visited;
+    int visited[8][8] = {};
+    vector<Knight*> savedKnights;
     Coords shifts[8] = {
         {2, 1}, {1, 2}, {-1, 2}, {-2, 1}, {2, -1}, {1, -2}, {-1, -2}, {-2, -1}
     };
     Coords knightStart = {0, 0};
     Coords knightTarget = {7, 7};
     
-    visited.push_back(knightStart);
+    visited[knightStart.y][knightStart.x] = 1;
     queue<Knight*> knightQueue;
-    knightQueue.push(new Knight(knightStart, knightTarget));
+    Knight *firstKnight = new Knight(knightStart, knightTarget);
+    knightQueue.push(firstKnight);
 
     while (!knightQueue.empty() && !knightQueue.front()->isSolved()) {
         Knight *currentKnight = knightQueue.front();
         knightQueue.pop();
         Coords currentStart = currentKnight->getStart();
+        bool save = false;
         for (Coords shift: shifts) {
             Coords newStart = currentStart + shift;
-            if (newStart.valid() && find(visited.begin(), visited.end(), newStart) == visited.end()) {
-                visited.push_back(newStart);
-                knightQueue.push(new Knight(newStart, knightTarget, currentKnight));
+            if (newStart.valid() && visited[newStart.y][newStart.x] != 1) {
+                visited[newStart.y][newStart.x] = 1;
+                Knight *newKnight = new Knight(newStart, knightTarget, currentKnight);
+                knightQueue.push(newKnight);
+                save = true;
             }
+        }
+        if (!save) {
+            delete currentKnight;
+        } else {
+            savedKnights.push_back(currentKnight);
         }
     }
 
-    knightQueue.front()->printMoves();
-    cout << endl;
-
-    while (!knightQueue.empty()) {
-        delete knightQueue.front();
-        knightQueue.pop();
+    if (knightQueue.front()->isSolved()) {
+        knightQueue.front()->printMoves();
+        cout << endl;
     }
+
+    for (Knight *savedKnight: savedKnights) {
+        delete savedKnight;
+    }
+
     return 0;
 }

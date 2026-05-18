@@ -12,11 +12,7 @@ Knight::Knight(Coords start, Coords target, Knight *prevMove)
     }
 }
 
-Knight::~Knight() {
-    std::cout << "Knight destroyed" << std::endl;
-}
-
-void Knight::printMoves()
+void Knight::printMoves() const
 {
     if (prevMove)
     {

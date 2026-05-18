@@ -1,6 +1,7 @@
 #ifndef KNIGHT_H
 #define KNIGHT_H
 #include <iostream>
+#include <string>
 
 struct Coords
 {
@@ -22,7 +23,7 @@ struct Coords
         return os;
     }
 
-    bool valid() {
+    bool valid() const {
         return (x >= 0 && x < 8) && (y >= 0 && y < 8);
     }
 };
@@ -31,11 +32,11 @@ class Knight
 {
 public:
     Knight(Coords start, Coords target, Knight *prevMove = nullptr);
-    ~Knight();
-    void printMoves();
-    bool isSolved() { return solved; }
-    Coords getStart() { return start; }
-    Coords getTarget() { return target; }
+    ~Knight() = default;
+    void printMoves() const;
+    bool isSolved() const { return solved; }
+    Coords getStart() const { return start; }
+    Coords getTarget() const { return target; }
 
 private:
     Knight *prevMove;
