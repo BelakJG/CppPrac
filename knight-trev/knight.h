@@ -7,6 +7,10 @@ struct Coords
 {
     int x, y;
 
+    Coords() : x(0), y(0) {}
+
+    Coords(int x, int y) : x(x), y(y) {}
+
     bool operator==(const Coords &other) const
     {
         return (x == other.x && y == other.y);
@@ -23,9 +27,13 @@ struct Coords
         return os;
     }
 
-    bool valid() const {
-        return (x >= 0 && x < 8) && (y >= 0 && y < 8);
+    bool valid() const
+    {
+        return (x >= 0 && x < board_size) && (y >= 0 && y < board_size);
     }
+
+private:
+    int board_size = 8;
 };
 
 class Knight

@@ -7,45 +7,56 @@ using namespace std;
 int main()
 {
     int visited[8][8] = {};
-    vector<Knight*> savedKnights;
+    vector<Knight *> savedKnights;
     Coords shifts[8] = {
-        {2, 1}, {1, 2}, {-1, 2}, {-2, 1}, {2, -1}, {1, -2}, {-1, -2}, {-2, -1}
-    };
-    Coords knightStart = {0, 0};
+        {2, 1}, {1, 2}, {-1, 2}, {-2, 1}, {2, -1}, {1, -2}, {-1, -2}, {-2, -1}};
+    Coords knightStart = {2, 2};
     Coords knightTarget = {7, 7};
-    
+
     visited[knightStart.y][knightStart.x] = 1;
-    queue<Knight*> knightQueue;
+    queue<Knight *> knightQueue;
     Knight *firstKnight = new Knight(knightStart, knightTarget);
     knightQueue.push(firstKnight);
 
-    while (!knightQueue.empty() && !knightQueue.front()->isSolved()) {
+    while (!knightQueue.empty() && !knightQueue.front()->isSolved())
+    {
         Knight *currentKnight = knightQueue.front();
         knightQueue.pop();
         Coords currentStart = currentKnight->getStart();
         bool save = false;
-        for (Coords shift: shifts) {
+        for (Coords shift : shifts)
+        {
             Coords newStart = currentStart + shift;
-            if (newStart.valid() && visited[newStart.y][newStart.x] != 1) {
+            if (newStart.valid() && visited[newStart.y][newStart.x] != 1)
+            {
                 visited[newStart.y][newStart.x] = 1;
                 Knight *newKnight = new Knight(newStart, knightTarget, currentKnight);
                 knightQueue.push(newKnight);
                 save = true;
             }
         }
-        if (!save) {
+        if (!save)
+        {
             delete currentKnight;
-        } else {
+        }
+        else
+        {
             savedKnights.push_back(currentKnight);
         }
     }
 
-    if (knightQueue.front()->isSolved()) {
+    if (!knightQueue.empty() && knightQueue.front()->isSolved())
+    {
         knightQueue.front()->printMoves();
         cout << endl;
     }
+    else
+    {
+        cout << "Solution not found!" << endl;
+    }
 
-    for (Knight *savedKnight: savedKnights) {
+    for (Knight *savedKnight : savedKnights)
+    {
         delete savedKnight;
     }
 
