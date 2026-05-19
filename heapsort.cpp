@@ -1,7 +1,7 @@
 #include <vector>
 using namespace std;
 
-void heapify(vector<int> &arr, int left, int n, int root_index) {
+void heapify(auto &arr, int left, int n, int root_index) {
     int largest = root_index;
     int left_child = (2 * root_index) + 1;
     int right_child = (2 * root_index) + 2;
@@ -20,7 +20,7 @@ void heapify(vector<int> &arr, int left, int n, int root_index) {
     }
 }
 
-void heapsort(vector<int> &arr, int left = 0, int right = -1) {
+void heapsort(auto &arr, int left = 0, int right = -1) {
     if (right == -1) {
         right = arr.size() - 1;
     }

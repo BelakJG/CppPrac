@@ -1,7 +1,7 @@
 #include <vector>
 using namespace std;
 
-void insertionSort(vector<int> &arr, int left, int right) {
+void insertionSort(auto &arr, int left, int right) {
     for (int i = left + 1; i <= right; ++i) {
         int key = arr[i];
         int j = i - 1;

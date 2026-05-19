@@ -8,7 +8,7 @@
 
 using namespace std;
 
-void is_sorted(vector<int> &arr) {
+void is_sorted(auto &arr) {
     int end = arr.size() - 1;
     for (int i = 0; i < end; ++i) {
         if (arr[i] > arr[i+1]) {
@@ -19,7 +19,7 @@ void is_sorted(vector<int> &arr) {
     cout << "array Sorted" << endl;
 }
 
-void introsortQueue(vector<int> &arr) {
+void introsortQueue(auto &arr) {
     if (arr.empty()) return;
 
     int left = 0;
