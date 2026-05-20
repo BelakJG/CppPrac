@@ -42,6 +42,15 @@ void MyVector<T>::reserve(size_t new_capacity) {
 }
 
 template<typename T>
+void MyVector<T>::push_back(const T& value) {
+    if (array_size >= array_capacity) {
+        reserve(array_capacity == 0 ? 1 : array_capacity * 2);
+    }
+
+    new (&array[array_size]) T(value);
+    ++array_size;
+}
+template<typename T>
 void MyVector<T>::push_back(T&& value) {
     if (array_size >= array_capacity) {
         reserve(array_capacity == 0 ? 1 : array_capacity * 2);
