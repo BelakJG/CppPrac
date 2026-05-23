@@ -5,6 +5,7 @@
 #include <iostream>
 #include "insertionSort.cpp"
 #include "heapsort.cpp"
+#include "structures/MyStack.hpp"
 
 using namespace std;
 
@@ -19,6 +20,12 @@ void is_sorted(auto &arr) {
     cout << "array Sorted" << endl;
 }
 
+struct Segment {
+    int left;
+    int right;
+    int depth;
+};
+
 void introsortQueue(auto &arr) {
     if (arr.empty()) return;
 
@@ -26,20 +33,20 @@ void introsortQueue(auto &arr) {
     int right = int(arr.size() - 1);
     int max_depth = log2(arr.size()) * 2;
 
-    stack<array<int, 3>> stack;
-    array<int, 3> segment = {left, right, max_depth};
+    MyStack<Segment> stack;
+    Segment segment = {left, right, max_depth};
     stack.push(segment);
 
     while (!stack.empty()) {
         segment = stack.top();
-        stack.pop();
         
-        left = segment[0];
-        right = segment[1];
-        max_depth = segment[2];
+        left = segment.left;
+        right = segment.right;
+        max_depth = segment.depth;
+        stack.pop();
 
         while (left < right) {
-            if (right - left <= 16) {
+            if (right - left <= 24) {
                 insertionSort(arr, left, right);
                 break;
             }
@@ -65,10 +72,10 @@ void introsortQueue(auto &arr) {
             while (true) {
                 do {
                     ++i;
-                } while (arr[i] <= pivot);
+                } while (arr[i] < pivot);
                 do {
                     --j;
-                } while (arr[j] >= pivot);
+                } while (arr[j] > pivot);
                 if (i >= j) {
                     break;
                 }
@@ -76,13 +83,12 @@ void introsortQueue(auto &arr) {
             }
 
             if (j - left < right - j) {
-                stack.push({left, j, max_depth - 1});
+                stack.push({left, j, --max_depth});
                 left = j + 1;
             } else {
-                stack.push({j+1, right, max_depth - 1});
+                stack.push({j+1, right, --max_depth});
                 right = j;
             }
-            --max_depth;
         }
     }
 }

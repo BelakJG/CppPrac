@@ -1,5 +1,4 @@
 #include <iostream>
-#include <vector>
 #include <random>
 #include <chrono>
 #include <sstream>
@@ -16,11 +15,10 @@ int main()
     std::random_device rd;
     // 2. Initialize the engine (Mersenne Twister is a common choice)
     std::mt19937 gen(rd());
-    // 3. Define the distribution (range [1, 100] inclusive)
+    // 3. Define the distribution (range [0, arr_size * 10] inclusive)
     std::uniform_int_distribution<> distrib(0, arr_size * 10);
-    // 4. Generate and print a random number
 
-    MyVector<long long> arr;
+    MyVector<int> arr;
 
     for (int i = 0; i < arr_size; i++)
     {
