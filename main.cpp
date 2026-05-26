@@ -4,10 +4,10 @@
 #include <sstream>
 #include <locale>
 #include "structures/MyVector.hpp"
-#include "introsortQueue.cpp"
+#include "QuickThread.cpp"
 using namespace std;
 
-size_t arr_size = 5000000;
+size_t arr_size = 10000000;
 
 int main()
 {
@@ -26,7 +26,7 @@ int main()
     }
 
     auto start = std::chrono::steady_clock::now();
-    introsortQueue(arr);
+    multiSort(arr);
     auto end = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 

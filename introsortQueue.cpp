@@ -26,28 +26,26 @@ struct Segment {
     int depth;
 };
 
-void introsortQueue(auto &arr) {
+void introsortQueue(auto &arr, int main_left = 0, int main_right = -1) {
     if (arr.empty()) return;
 
-    int left = 0;
-    int right = int(arr.size() - 1);
+    if (main_right == -1) main_right = int(arr.size() - 1);
     int max_depth = log2(arr.size()) * 2;
 
     MyStack<Segment> stack;
-    Segment segment = {left, right, max_depth};
+    Segment segment = {main_left, main_right, max_depth};
     stack.push(segment);
 
     while (!stack.empty()) {
         segment = stack.top();
         
-        left = segment.left;
-        right = segment.right;
+        int left = segment.left;
+        int right = segment.right;
         max_depth = segment.depth;
         stack.pop();
 
         while (left < right) {
             if (right - left <= 24) {
-                insertionSort(arr, left, right);
                 break;
             }
             if (max_depth <= 0) {
@@ -83,12 +81,13 @@ void introsortQueue(auto &arr) {
             }
 
             if (j - left < right - j) {
-                stack.push({left, j, --max_depth});
-                left = j + 1;
-            } else {
-                stack.push({j+1, right, --max_depth});
+                stack.push({j + 1, right, max_depth - 1});
                 right = j;
+            } else {
+                stack.push({left, j, max_depth - 1});
+                left = j + 1;
             }
         }
     }
+    insertionSort(arr, main_left, main_right);
 }
