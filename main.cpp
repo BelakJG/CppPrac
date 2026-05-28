@@ -7,15 +7,12 @@
 #include "QuickThread.cpp"
 using namespace std;
 
-size_t arr_size = 10000000;
+size_t arr_size = 50000000;
 
 int main()
 {
-    // 1. Obtain a random seed from the hardware
     std::random_device rd;
-    // 2. Initialize the engine (Mersenne Twister is a common choice)
     std::mt19937 gen(rd());
-    // 3. Define the distribution (range [0, arr_size * 10] inclusive)
     std::uniform_int_distribution<> distrib(0, arr_size * 10);
 
     MyVector<int> arr;
@@ -26,7 +23,7 @@ int main()
     }
 
     auto start = std::chrono::steady_clock::now();
-    multiSort(arr);
+    multiSort(arr, 0, arr_size - 1);
     auto end = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 

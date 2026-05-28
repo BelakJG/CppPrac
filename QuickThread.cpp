@@ -2,39 +2,63 @@
 #include <utility>
 #include <cstddef>
 #include <functional>
+#include <iostream>
 #include "structures/MyVector.hpp"
 #include "introsortQueue.cpp"
 using namespace std;
 
+int MAX_THREADS = thread::hardware_concurrency();
+int threads = 1;
+
+void multiSort(MyVector<int> &arr, size_t left, size_t right);
 void worker(MyVector<int> &arr, size_t left, size_t right) {
-    introsortQueue(arr, left, right);
+    multiSort(arr, left, right);
 }
 
-void multiSort(MyVector<int> &arr) {
-    size_t left = 0;
-    size_t right = arr.size() - 1;
-    size_t mid = left + ((right - left) / 2);
+void multiSort(MyVector<int> &arr, size_t left, size_t right) {
+    if (left >= right) return;
+    if (right - left <= 50000) {
+        introsortQueue(arr, left, right);
+    } else {
+        size_t mid = left + ((right - left) / 2);
+        if (arr[mid] < arr[left]) swap(arr[mid], arr[left]);
+        if (arr[right] < arr[left]) swap(arr[right], arr[left]);
+        if (arr[right] < arr[mid]) swap(arr[right], arr[mid]);
 
-    if (arr[left] > arr[mid]) swap(arr[left], arr[mid]);
-    if (arr[left] > arr[right]) swap(arr[left], arr[right]);
-    if (arr[mid] > arr[right]) swap(arr[mid], arr[right]);
-
-    int pivot = arr[mid];
-    size_t i = left - 1;
-    size_t j = right + 1;
-    while (true) {
-        do {
+        long long pivot = arr[mid];
+        size_t i = left;
+        size_t j = right;
+        while (true) {
+            while (arr[i] < pivot) ++i;
+            while (arr[j] > pivot) --j;
+            if (i >= j) break;
+            swap(arr[i], arr[j]);
             ++i;
-        } while (arr[i] < pivot);
-        do {
             --j;
-        } while (arr[j] > pivot);
-        if (i >= j) break;
-        swap(arr[i], arr[j]);
+        }
+
+        if (right - j > j - left) {
+            if (threads < MAX_THREADS) {
+                ++threads;
+                thread t(worker, ref(arr), j+1, right);
+                multiSort(arr, left, j);
+                if (t.joinable()) t.join();
+                --threads;
+            } else {
+                multiSort(arr, left, j);
+                multiSort(arr, j+1, right);
+            }
+        } else {
+            if (threads < MAX_THREADS) {
+                ++threads;
+                thread t(worker, ref(arr), left, j);
+                multiSort(arr, j+1, right);
+                if (t.joinable()) t.join();
+                --threads;
+            } else {
+                multiSort(arr, j+1, right);
+                multiSort(arr, left, j);
+            }
+        }
     }
-
-    thread t1(worker, ref(arr), left, j);
-    introsortQueue(arr, j+1, right);
-
-    if (t1.joinable()) t1.join();
 }

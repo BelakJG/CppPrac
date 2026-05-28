@@ -3,6 +3,7 @@
 #include <stack>
 #include <cmath>
 #include <iostream>
+#include <cstdint>
 #include "insertionSort.cpp"
 #include "heapsort.cpp"
 #include "structures/MyStack.hpp"
@@ -21,16 +22,16 @@ void is_sorted(auto &arr) {
 }
 
 struct Segment {
-    int left;
-    int right;
-    int depth;
+    size_t left;
+    size_t right;
+    size_t depth;
 };
 
-void introsortQueue(auto &arr, int main_left = 0, int main_right = -1) {
+void introsortQueue(auto &arr, size_t main_left = 0, size_t main_right = SIZE_MAX) {
     if (arr.empty()) return;
 
-    if (main_right == -1) main_right = int(arr.size() - 1);
-    int max_depth = log2(arr.size()) * 2;
+    if (main_right == SIZE_MAX) main_right = int(arr.size() - 1);
+    size_t max_depth = log2(arr.size()) * 2;
 
     MyStack<Segment> stack;
     Segment segment = {main_left, main_right, max_depth};
@@ -39,8 +40,8 @@ void introsortQueue(auto &arr, int main_left = 0, int main_right = -1) {
     while (!stack.empty()) {
         segment = stack.top();
         
-        int left = segment.left;
-        int right = segment.right;
+        size_t left = segment.left;
+        size_t right = segment.right;
         max_depth = segment.depth;
         stack.pop();
 
@@ -48,36 +49,26 @@ void introsortQueue(auto &arr, int main_left = 0, int main_right = -1) {
             if (right - left <= 24) {
                 break;
             }
-            if (max_depth <= 0) {
+            if (max_depth == 0) {
                 heapsort(arr, left, right);
                 break;
             }
 
-            int mid = left + ((right - left) / 2);
-            if (arr[mid] < arr[left]) {
-                swap(arr[mid], arr[left]);
-            }
-            if (arr[right] < arr[left]) {
-                swap(arr[right], arr[left]);
-            }
-            if (arr[right] < arr[mid]) {
-                swap(arr[right], arr[mid]);
-            }
+            size_t mid = left + ((right - left) / 2);
+            if (arr[mid] < arr[left]) swap(arr[mid], arr[left]);
+            if (arr[right] < arr[left]) swap(arr[right], arr[left]);
+            if (arr[right] < arr[mid]) swap(arr[right], arr[mid]);
 
-            int pivot = arr[mid];
-            int i = left - 1;
-            int j = right + 1;
+            long long pivot = arr[mid];
+            size_t i = left;
+            size_t j = right;
             while (true) {
-                do {
-                    ++i;
-                } while (arr[i] < pivot);
-                do {
-                    --j;
-                } while (arr[j] > pivot);
-                if (i >= j) {
-                    break;
-                }
+                while (arr[i] < pivot) ++i;
+                while (arr[j] > pivot) --j;
+                if (i >= j) break;
                 swap(arr[i], arr[j]);
+                ++i;
+                --j;
             }
 
             if (j - left < right - j) {
@@ -90,4 +81,4 @@ void introsortQueue(auto &arr, int main_left = 0, int main_right = -1) {
         }
     }
     insertionSort(arr, main_left, main_right);
-}
+};
