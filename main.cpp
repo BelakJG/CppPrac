@@ -7,7 +7,7 @@
 #include "QuickThread.cpp"
 using namespace std;
 
-size_t arr_size = 50000000;
+size_t arr_size = 100000000;
 
 int main()
 {
@@ -15,9 +15,9 @@ int main()
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> distrib(0, arr_size * 10);
 
-    MyVector<int> arr;
+    MyVector<long long> arr;
 
-    for (int i = 0; i < arr_size; i++)
+    for (size_t i = 0; i < arr_size; i++)
     {
         arr.push_back(distrib(gen));
     }

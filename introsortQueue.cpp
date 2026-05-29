@@ -11,8 +11,8 @@
 using namespace std;
 
 void is_sorted(auto &arr) {
-    int end = arr.size() - 1;
-    for (int i = 0; i < end; ++i) {
+    size_t end = arr.size() - 1;
+    for (size_t i = 0; i < end; ++i) {
         if (arr[i] > arr[i+1]) {
             cout << "Array not sorted" << endl;
             return;

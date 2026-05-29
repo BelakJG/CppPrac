@@ -10,12 +10,12 @@ using namespace std;
 int MAX_THREADS = thread::hardware_concurrency();
 int threads = 1;
 
-void multiSort(MyVector<int> &arr, size_t left, size_t right);
-void worker(MyVector<int> &arr, size_t left, size_t right) {
+void multiSort(MyVector<long long> &arr, size_t left, size_t right);
+void worker(MyVector<long long> &arr, size_t left, size_t right) {
     multiSort(arr, left, right);
 }
 
-void multiSort(MyVector<int> &arr, size_t left, size_t right) {
+void multiSort(MyVector<long long> &arr, size_t left, size_t right) {
     if (left >= right) return;
     if (right - left <= 50000) {
         introsortQueue(arr, left, right);
