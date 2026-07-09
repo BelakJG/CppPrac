@@ -89,35 +89,55 @@ int score_board(const string& board) {
     return score;
 }
 
+unordered_map<string, int> minimax_cache;
 int minimax(const string& board, int turn, int alpha = INT_MIN, int beta = INT_MAX) {
+    string cache_key = board + ((turn == 1) ? "1" : "-1");
+    if (auto search = minimax_cache.find(cache_key); search != minimax_cache.end()) {
+        return search->second;
+    }
     const int score = score_board(board);
     if (ranges::count(board, '.') == 0 or score == numeric_limits<int>::max() or score == numeric_limits<int>::min()) {
+        minimax_cache[cache_key] = score;
         return score;
     }
-    //turn = 1 / X or maximizer
+
     if (turn == 1) {
+        //turn = 1 / X or maximizer
         for (int i = 0; i < 9; ++i) {
             if (board[i] == '.') {
                 string new_board = board;
                 new_board[i] = 'X';
                 int value = minimax(new_board, -1, alpha, beta);
                 if (value > alpha) alpha = value;
-                if (alpha >= beta) return alpha;
+                if (alpha >= beta) {
+                    minimax_cache[cache_key] = alpha;
+                    return alpha;
+                }
             }
         }
     } else {
+        // turn = 0 / O or minimizer
         for (int i = 0; i < 9; ++i) {
             if (board[i] == '.') {
                 string new_board = board;
                 new_board[i] = 'O';
                 int value = minimax(new_board, 1, alpha, beta);
                 if (value < beta) beta = value;
-                if (beta <= alpha) return beta;
+                if (beta <= alpha) {
+                    minimax_cache[cache_key] = beta;
+                    return beta;
+                }
             }
         }
     }
 
-    return (turn == 1) ? alpha : beta;
+    if (turn == 1) {
+        minimax_cache[cache_key] = alpha;
+        return alpha;
+    } else {
+        minimax_cache[cache_key] = beta;
+        return beta;
+    }
 }
 
 string find_best(const string& board, int turn) {
