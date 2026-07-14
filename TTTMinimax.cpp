@@ -2,7 +2,6 @@
 #include <iostream>
 #include <algorithm>
 #include <limits>
-#include <ranges>
 #include <unordered_map>
 
 using namespace std;
