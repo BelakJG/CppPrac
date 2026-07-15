@@ -5,17 +5,13 @@
 #include <algorithm>
 #include <unordered_map>
 #include <vector>
+#include <future>
+#include <climits>
+#include <stdexcept>
 
 using namespace std;
 
-const int INT_MIN = numeric_limits<int>::min();
-const int INT_MAX = numeric_limits<int>::max();
-
-unordered_map<string, int> inner_board_cache;
 int score_inner_board(const string& board) {
-    if (auto search = inner_board_cache.find(board); search != inner_board_cache.end()) {
-        return search->second;
-    }
     int winning_positions[8][3] = {
         //Horizontals
         {0,1,2},
@@ -47,11 +43,9 @@ int score_inner_board(const string& board) {
 
         //check for winners
         if (XCount == 3) {
-            inner_board_cache[board] = INT_MAX;
             return INT_MAX;
         }
         if (OCount == 3) {
-            inner_board_cache[board] = INT_MIN;
             return INT_MIN;
         }
 
@@ -67,7 +61,6 @@ int score_inner_board(const string& board) {
 
     //check if draw
     if (ranges::count(board, '.') == 0) {
-        inner_board_cache[board] = 0;
         return 0;
     }
 
@@ -81,19 +74,10 @@ int score_inner_board(const string& board) {
         }
     }
 
-    inner_board_cache[board] = score;
     return score;
 }
 
-unordered_map<string, int> meta_board_cache;
-int score_meta_board(const auto& meta_board) {
-    string cache_key = "";
-    for (const string& board : meta_board) {
-        cache_key += board;
-    }
-    if (auto search = meta_board_cache.find(cache_key); search != meta_board_cache.end()) {
-        return search->second;
-    }
+int score_meta_board(const array<string, 9>& meta_board) {
     string meta_string = "";
     int score = 0;
     for (int i = 0; i < 9; ++i) {
@@ -111,17 +95,15 @@ int score_meta_board(const auto& meta_board) {
             meta_string += 'D';
         } else {
             meta_string += '.';
-            score += (inner_score * 50 * weights[i]);
+            score += (inner_score * weights[i]);
         }
     }
     int meta_score = score_inner_board(meta_string);
     if (meta_score == INT_MAX or meta_score == INT_MIN) {
-        meta_board_cache[cache_key] = meta_score;
         return meta_score;
     }
 
     score += (meta_score * 1000);
-    meta_board_cache[cache_key] = score;
     return score;
 }
 
@@ -131,9 +113,30 @@ bool valid_board(const string& board) {
     return true;
 }
 
+struct CacheEntry {
+    int score;
+    int depth;
+    int bound;
+};
+thread_local unordered_map<string, CacheEntry> minimax_cache;
 int minimax(const array<string, 9>& meta_board, int turn, int meta_pos, int depth = 10, int alpha = INT_MIN, int beta = INT_MAX) {
+    string cache_key = to_string(meta_pos) + "|" + to_string(depth) + "|" + ((turn == 1) ? "1" : "-1");
+    for (const string& board : meta_board) {
+        cache_key += ("|" + board);
+    }
+    auto search = minimax_cache.find(cache_key);
+    if (search != minimax_cache.end()) {
+        CacheEntry e = search->second;
+
+        if (e.bound == 0) return e.score;
+        if (e.bound == 1) alpha = max(alpha, e.score);
+        if (e.bound == -1) beta = min(beta, e.score);
+        if (alpha >= beta) return e.score;
+    }
+
     int term_score = score_meta_board(meta_board); 
     if (term_score == INT_MAX or term_score == INT_MIN or depth == 0) {
+        minimax_cache[cache_key] = {term_score, depth, 0};
         return term_score;
     }
 
@@ -149,6 +152,7 @@ int minimax(const array<string, 9>& meta_board, int turn, int meta_pos, int dept
         }
     }
     if (valid_metas.empty()) {
+        minimax_cache[cache_key] = {0, depth, 0};
         return 0;
     }
 
@@ -161,11 +165,13 @@ int minimax(const array<string, 9>& meta_board, int turn, int meta_pos, int dept
                 if (turn == 1) {
                     alpha = max(score, alpha);
                     if (alpha >= beta) {
+                        minimax_cache[cache_key] = {alpha, depth, 1};
                         return alpha;
                     }
                 } else {
                     beta = min(score, beta);
                     if (beta <= alpha) {
+                        minimax_cache[cache_key] = {beta, depth, -1};
                         return beta;
                     }
                 }
@@ -180,19 +186,19 @@ struct BestMove {
     array<string, 9> board;
     int played_outer;
     int played_inner;
-    int score;
+    int score = 0;
 };
 
 BestMove find_best(const auto& board, int turn, int next_outer) {
     static bool first_turn = true;
-    int max_depth = 8;
+    int max_depth = 7;
     
     vector<int> valid_metas;
     if (not first_turn) {
         if (valid_board(board[next_outer])) {
             valid_metas = {next_outer};
         } else {
-            for (int i = 0; i < 9; ++i) {
+            for (int i : {4,0,2,6,8,1,3,5,7}) {
                 if (valid_board(board[i])) {
                     valid_metas.push_back(i);
                 }
@@ -200,28 +206,35 @@ BestMove find_best(const auto& board, int turn, int next_outer) {
         }
     } else {
         first_turn = false;
-        max_depth = 4;
-        valid_metas = {0,1,2,3,4,5,6,7,8};
+        valid_metas = {4,0,2,6,8,1,3,5,7};
     }
 
     BestMove best;
     best.played_outer = -1;
     best.played_inner = -1;
 
-    best.score = INT_MIN;
+    best.score = ((turn == 1) ? INT_MIN : INT_MAX);
+    vector<BestMove> possible_moves;
+    vector<future<int>> current_threads;
     for (int valid_outer_pos : valid_metas) {
-        for (int inner_pos = 0; inner_pos < 9; ++inner_pos) {
+        for (int inner_pos : {4,0,2,6,8,1,3,5,7}) {
             if (board[valid_outer_pos][inner_pos] == '.') {
                 array<string, 9> new_board = board;
                 new_board[valid_outer_pos][inner_pos] = ((turn == 1) ? 'X' : 'O');
-                int score = minimax(new_board, -turn, inner_pos, max_depth);
-                if ((score > best.score and turn == 1) or (score < best.score and turn == -1)) {
-                    best.board = new_board;
-                    best.played_outer = valid_outer_pos;
-                    best.played_inner = inner_pos;
-                    best.score = score;
-                }
+                BestMove temp_move = {new_board, valid_outer_pos, inner_pos, 0};
+                possible_moves.push_back(move(temp_move));
+                current_threads.push_back(async(launch::async, minimax, new_board, -turn, inner_pos, max_depth, INT_MIN, INT_MAX));
             }
+        }
+    }
+    
+    for (int i = 0; i < current_threads.size(); ++i) {
+        int score = current_threads[i].get();
+        if ((turn == 1 and score > best.score) or (turn == -1 and score < best.score)) {
+            best.board = possible_moves[i].board;
+            best.played_inner = possible_moves[i].played_inner;
+            best.played_outer = possible_moves[i].played_outer;
+            best.score = score;
         }
     }
 
@@ -235,26 +248,30 @@ int main() {
     int next_outer = 1;
     int turn = 1;
     while (true) {
-        BestMove best = find_best(board, turn, next_outer);
-        board = best.board;
-        turn = -turn;
+        try {
+            BestMove best = find_best(board, turn, next_outer);
+            board = best.board;
+            turn = -turn;
 
-        if (valid_board(board[best.played_inner])) {
-            cout << "Opponent turn | Outer: " << best.played_inner + 1 << " Inner: ";
-            cin >> next_outer;
-            --next_outer;
-            board[best.played_inner][next_outer] = ((turn == 1) ? 'X' : 'O');
-        } else {
-            cout << "Opponent turn | Outer: ";
-            int actual_outer;
-            cin >> actual_outer;
-            --actual_outer;
-            cout << "Inner: ";
-            cin >> next_outer;
-            --next_outer;
-            board[actual_outer][next_outer] = ((turn == 1) ? 'X' : 'O');
+            if (valid_board(board[best.played_inner])) {
+                cout << "Opponent turn | Outer: " << best.played_inner + 1 << " Inner: ";
+                cin >> next_outer;
+                --next_outer;
+                board[best.played_inner][next_outer] = ((turn == 1) ? 'X' : 'O');
+            } else {
+                cout << "Opponent turn | Outer: ";
+                int actual_outer;
+                cin >> actual_outer;
+                --actual_outer;
+                cout << "Inner: ";
+                cin >> next_outer;
+                --next_outer;
+                board[actual_outer][next_outer] = ((turn == 1) ? 'X' : 'O');
+            }
+            turn = -turn;
+            cout << endl;
+        } catch (const runtime_error& e) {
+            cerr << e.what() << endl;
         }
-        turn = -turn;
-        cout << endl;
     }
 }
