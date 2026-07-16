@@ -8,6 +8,7 @@
 #include <future>
 #include <climits>
 #include <stdexcept>
+#include "TTTzobristhash.cpp"
 
 using namespace std;
 
@@ -77,6 +78,7 @@ int score_inner_board(const string& board) {
     return score;
 }
 
+
 int score_meta_board(const array<string, 9>& meta_board) {
     string meta_string = "";
     int score = 0;
@@ -103,7 +105,7 @@ int score_meta_board(const array<string, 9>& meta_board) {
         return meta_score;
     }
 
-    score += (meta_score * 1000);
+    score += (meta_score * 2000);
     return score;
 }
 
@@ -114,35 +116,44 @@ bool valid_board(const string& board) {
 }
 
 struct CacheEntry {
+    int TTmeta;
+    int TTinner;
     int score;
     int depth;
     int bound;
 };
-thread_local unordered_map<string, CacheEntry> minimax_cache;
-int minimax(const array<string, 9>& meta_board, int turn, int meta_pos, int depth = 10, int alpha = INT_MIN, int beta = INT_MAX) {
-    string cache_key = to_string(meta_pos) + "|" + to_string(depth) + "|" + ((turn == 1) ? "1" : "-1");
-    for (const string& board : meta_board) {
-        cache_key += ("|" + board);
-    }
+
+ZobristHash zobrist;
+int minimax(uint64_t& cache_key, array<string, 9>& meta_board, int turn, int meta_pos, int depth = 10, int alpha = INT_MIN, int beta = INT_MAX) {
+    static unordered_map<uint64_t, CacheEntry> minimax_cache;
+    int orig_alpha = alpha;
+    int orig_beta = beta;
+    int TTinner = -1;
+    int TTmeta = -1;
+
     auto search = minimax_cache.find(cache_key);
     if (search != minimax_cache.end()) {
-        CacheEntry e = search->second;
+        const CacheEntry& e = search->second;
+        TTinner = e.TTinner;
+        TTmeta = e.TTmeta;
 
-        if (e.bound == 0) return e.score;
-        if (e.bound == 1) alpha = max(alpha, e.score);
-        if (e.bound == -1) beta = min(beta, e.score);
-        if (alpha >= beta) return e.score;
+        if (search->second.depth >= depth) {
+            if (e.bound == 0) return e.score;
+            if (e.bound == 1) beta = min(beta, e.score);
+            if (e.bound == -1) alpha = max(alpha, e.score);
+            if (alpha >= beta) return e.score;
+        }
     }
 
     int term_score = score_meta_board(meta_board); 
     if (term_score == INT_MAX or term_score == INT_MIN or depth == 0) {
-        minimax_cache[cache_key] = {term_score, depth, 0};
+        minimax_cache[cache_key] = {-1, -1, term_score, depth, 0};
         return term_score;
     }
 
     int move_order[9] = {4,0,2,6,8,1,3,5,7};
     vector<int> valid_metas;
-    if (valid_board(meta_board[meta_pos])) {
+    if (meta_pos != 9) {
         valid_metas.push_back(meta_pos);
     } else {
         for (int i : move_order) {
@@ -152,34 +163,93 @@ int minimax(const array<string, 9>& meta_board, int turn, int meta_pos, int dept
         }
     }
     if (valid_metas.empty()) {
-        minimax_cache[cache_key] = {0, depth, 0};
+        minimax_cache[cache_key] = {-1, -1, 0, depth, 0};
         return 0;
     }
 
+    int old_forced = valid_metas.size() == 1 ? meta_pos : 9;
+    int best_meta = -1;
+    int best_inner = -1;
+    bool pruned = false;
+    if (search != minimax_cache.end()) {
+        CacheEntry e = search->second;
+        if (TTinner != -1 and TTmeta != -1 and e.depth >= depth) {
+            int next_forced = valid_board(meta_board[TTinner]) ? TTinner : 9;
+            char next_move = turn == 1 ? 'X' : 'O';
+            meta_board[TTmeta][TTinner] = next_move;
+            zobrist.update(cache_key, TTmeta, TTinner, next_move, old_forced, next_forced);
+            int score = minimax(cache_key, meta_board, -turn, e.TTinner, depth - 1, alpha, beta);
+            zobrist.update(cache_key, TTmeta, TTinner, next_move, next_forced, old_forced);
+            meta_board[TTmeta][TTinner] = '.';
+
+            if (turn == 1 and score > alpha) {
+                alpha = score;
+                best_meta = TTmeta;
+                best_inner = TTinner;
+            } if (turn == -1 and score < beta) {
+                beta = score;
+                best_meta = TTmeta;
+                best_inner = TTinner;
+            }
+            if (alpha >= beta) pruned = true;
+        }
+    }
     for (int valid_meta_pos : valid_metas) {
+        if (pruned) break;
         for (int inner_pos : move_order) {
+            if (valid_meta_pos == TTmeta and inner_pos == TTinner) continue;
             if (meta_board[valid_meta_pos][inner_pos] == '.') {
-                array<string, 9> new_board = meta_board;
-                new_board[valid_meta_pos][inner_pos] = ((turn == 1) ? 'X' : 'O');
-                int score = minimax(new_board, -turn, inner_pos, depth - 1, alpha, beta);
+                char new_move = ((turn == 1) ? 'X' : 'O');
+                int new_forced = (valid_board(meta_board[inner_pos]) ? inner_pos : 9);
+                meta_board[valid_meta_pos][inner_pos] = new_move;
+                zobrist.update(cache_key, valid_meta_pos, inner_pos, new_move, old_forced, new_forced);
+                int score = minimax(cache_key, meta_board, -turn, new_forced, depth - 1, alpha, beta);
+                zobrist.update(cache_key, valid_meta_pos, inner_pos, new_move, new_forced, old_forced);
+                meta_board[valid_meta_pos][inner_pos] = '.';
                 if (turn == 1) {
-                    alpha = max(score, alpha);
+                    if (score > alpha) {
+                        best_meta = valid_meta_pos;
+                        best_inner = inner_pos;
+                        alpha = score;
+                    }
                     if (alpha >= beta) {
-                        minimax_cache[cache_key] = {alpha, depth, 1};
-                        return alpha;
+                        pruned = true;
+                        break;
                     }
                 } else {
-                    beta = min(score, beta);
+                    if (score < beta) {
+                        beta = score;
+                        best_meta = valid_meta_pos;
+                        best_inner = inner_pos;
+                    }
                     if (beta <= alpha) {
-                        minimax_cache[cache_key] = {beta, depth, -1};
-                        return beta;
+                        pruned = true;
+                        break;
                     }
                 }
             }
         }
     }
 
-    return ((turn == 1) ? alpha : beta);
+
+    int best = ((turn == 1) ? alpha : beta);
+    if (search == minimax_cache.end() or depth >= search->second.depth) {
+        CacheEntry entry;
+        entry.TTmeta = best_meta;
+        entry.TTinner = best_inner;
+        entry.score = best;
+        entry.depth = depth;
+        if (best <= orig_alpha) {
+            entry.bound = 1;
+        } else if (best >= orig_beta) {
+            entry.bound = -1;
+        } else {
+            entry.bound = 0;
+        }
+        minimax_cache[cache_key] = move(entry);
+    }
+
+    return best;
 }
 
 struct BestMove {
@@ -189,13 +259,14 @@ struct BestMove {
     int score = 0;
 };
 
-BestMove find_best(const auto& board, int turn, int next_outer) {
+BestMove find_best(uint64_t& hash, auto& board, int turn, int next_outer) {
     static bool first_turn = true;
-    int max_depth = 7;
+    static int max_depth = 6;
+    bool first_move = true;
     
     vector<int> valid_metas;
     if (not first_turn) {
-        if (valid_board(board[next_outer])) {
+        if (next_outer != 9) {
             valid_metas = {next_outer};
         } else {
             for (int i : {4,0,2,6,8,1,3,5,7}) {
@@ -212,63 +283,88 @@ BestMove find_best(const auto& board, int turn, int next_outer) {
     BestMove best;
     best.played_outer = -1;
     best.played_inner = -1;
-
     best.score = ((turn == 1) ? INT_MIN : INT_MAX);
-    vector<BestMove> possible_moves;
-    vector<future<int>> current_threads;
+    char new_move = ((turn == 1) ? 'X' : 'O');
+
     for (int valid_outer_pos : valid_metas) {
         for (int inner_pos : {4,0,2,6,8,1,3,5,7}) {
             if (board[valid_outer_pos][inner_pos] == '.') {
-                array<string, 9> new_board = board;
-                new_board[valid_outer_pos][inner_pos] = ((turn == 1) ? 'X' : 'O');
-                BestMove temp_move = {new_board, valid_outer_pos, inner_pos, 0};
-                possible_moves.push_back(move(temp_move));
-                current_threads.push_back(async(launch::async, minimax, new_board, -turn, inner_pos, max_depth, INT_MIN, INT_MAX));
+                int new_forced = (valid_board(board[inner_pos]) ? inner_pos : 9);
+
+                board[valid_outer_pos][inner_pos] = new_move;
+                zobrist.update(hash, valid_outer_pos, inner_pos, new_move, next_outer, new_forced);
+                int score = minimax(hash, board, -turn, new_forced, max_depth);
+                zobrist.update(hash, valid_outer_pos, inner_pos, new_move, new_forced, next_outer);
+                board[valid_outer_pos][inner_pos] = '.';
+
+                if ((score > best.score && turn == 1) or (score < best.score && turn == -1) or first_move) {
+                    first_move = false;
+                    best.board = board;
+                    best.board[valid_outer_pos][inner_pos] = new_move;
+                    best.played_outer = valid_outer_pos;
+                    best.played_inner = inner_pos;
+                    best.score = score;
+                }
             }
-        }
-    }
-    
-    for (int i = 0; i < current_threads.size(); ++i) {
-        int score = current_threads[i].get();
-        if ((turn == 1 and score > best.score) or (turn == -1 and score < best.score)) {
-            best.board = possible_moves[i].board;
-            best.played_inner = possible_moves[i].played_inner;
-            best.played_outer = possible_moves[i].played_outer;
-            best.score = score;
         }
     }
 
     cout << "Best Move | Outer: " << best.played_outer + 1 << " Inner: " << best.played_inner + 1 << " Score: " << best.score << endl;
+    static int moves_since_inc = 0;
+    if (max_depth < 9) {
+        ++moves_since_inc;
+        if (moves_since_inc >= 3) {
+            ++max_depth;
+            moves_since_inc = 0;
+        }
+    }
     return best;
 }
 
 int main() {
     array<string, 9> board = {".........",".........",".........",".........",".........",".........",".........",".........","........."};
-
-    int next_outer = 1;
+    
+    int last_forced = 9;
     int turn = 1;
-    while (true) {
+    uint64_t hash = zobrist.compute(board, last_forced);
+    while (score_meta_board(board) != INT_MAX and score_meta_board(board) != INT_MIN) {
         try {
-            BestMove best = find_best(board, turn, next_outer);
+            char move_symbol = ((turn == 1) ? 'X' : 'O');
+            BestMove best = find_best(hash, board, turn, last_forced);
             board = best.board;
-            turn = -turn;
 
-            if (valid_board(board[best.played_inner])) {
-                cout << "Opponent turn | Outer: " << best.played_inner + 1 << " Inner: ";
-                cin >> next_outer;
-                --next_outer;
-                board[best.played_inner][next_outer] = ((turn == 1) ? 'X' : 'O');
+            int next_forced = valid_board(board[best.played_inner]) ? best.played_inner : 9;
+            zobrist.update(hash, best.played_outer, best.played_inner, move_symbol, last_forced, next_forced);
+
+            if (score_meta_board(board) == INT_MAX or score_meta_board(board) == INT_MIN) break;
+            turn = -turn;
+            move_symbol = ((turn == 1) ? 'X' : 'O');
+            last_forced = next_forced;
+
+            if (last_forced != 9) {
+                cout << "Opponent turn | Outer: " << last_forced + 1 << " Inner: ";
+                int op_inner;
+                cin >> op_inner;
+                --op_inner;
+
+                board[last_forced][op_inner] = move_symbol;
+                next_forced = (valid_board(board[op_inner]) ? op_inner : 9);
+                zobrist.update(hash, last_forced, op_inner, move_symbol, last_forced, next_forced);
             } else {
                 cout << "Opponent turn | Outer: ";
                 int actual_outer;
                 cin >> actual_outer;
                 --actual_outer;
                 cout << "Inner: ";
-                cin >> next_outer;
-                --next_outer;
-                board[actual_outer][next_outer] = ((turn == 1) ? 'X' : 'O');
+                int op_inner;
+                cin >> op_inner;
+                --op_inner;
+                board[actual_outer][op_inner] = move_symbol;
+                next_forced = (valid_board(board[op_inner]) ? op_inner : 9);
+                zobrist.update(hash, actual_outer, op_inner, move_symbol, last_forced, next_forced);
             }
             turn = -turn;
+            last_forced = next_forced;
             cout << endl;
         } catch (const runtime_error& e) {
             cerr << e.what() << endl;
