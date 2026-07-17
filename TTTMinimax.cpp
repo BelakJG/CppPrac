@@ -1,231 +1,176 @@
-#include <string>
 #include <iostream>
-#include <algorithm>
-#include <limits>
-#include <unordered_map>
+#include <cstdint>
 
 using namespace std;
-const int INT_MIN = numeric_limits<int>::min();
-const int INT_MAX = numeric_limits<int>::max();
 
-void print_board(const string& board) {
-    for (int i = 0; i < 9; i += 3) {
-        char first = (board[0 + i] == '.') ? (i + 1 + '0') : board[0 + i];
-        char second = (board[1 + i] == '.') ? (i + 2 + '0') : board[1 + i];
-        char third = (board[2 + i] == '.') ? (i + 3 + '0') : board[2 + i];
-        cout << first << " | " << second << " | " << third << endl;
-    }
-}
+struct Board {
+    uint16_t x = 0;
+    uint16_t o = 0;
 
-unordered_map<string, int> board_score_cache;
-int score_board(const string& board) {
-    if (auto search = board_score_cache.find(board); search != board_score_cache.end()) {
-        return search->second;
-    }
+    void print() const {
+        for (int row = 0; row < 3; ++row) {
+            for (int col = 0; col < 3; ++col) {
+                uint16_t offset = col + (row * 3);
+                uint16_t mask = 1u << offset;
+                char c = offset + 1 + '0';
 
-    int positions[8][3] = {
-        //Horizontals
-        {0,1,2},
-        {3,4,5},
-        {6,7,8},
-        //Verticals
-        {0,3,6},
-        {1,4,7},
-        {2,5,8},
-        //Diags
-        {0,4,8},
-        {6,4,2}
-    };
-    //calculating score
-    int score = 0;
-    for (const auto& position : positions) {
-        string line = {board[position[0]], board[position[1]], board[position[2]]};
-        int XCount = 0;
-        int OCount = 0;
-        int empty = 0;
-        for (const char& letter : line) {
-            if (letter == 'X') {
-                ++XCount;
-            } else if (letter == 'O') {
-                ++OCount;
-            } else if (letter == '.') {
-                ++empty;
+                if (x & mask) {
+                    c = 'X';
+                } else if (o & mask) {
+                    c = 'O';
+                }
+
+                cout << c << (col == 2 ? "\n" : " | ");
             }
         }
-        //X or O wins
-        if (XCount == 3) {
-            board_score_cache[board] = INT_MAX;
-            return INT_MAX;
-        } else if (OCount == 3) {
-            board_score_cache[board] = INT_MIN;
-            return INT_MIN;
-        }
-        //two in a line with empty spot
-        if (empty == 1) {
-            if (XCount == 2) {
-                score += 20;
-            } else if (OCount == 2) {
-                score -= 20;
-            }
+        cout << endl;
+    }
+
+    void play(int pos, bool xTurn) {
+        uint16_t mask = 1u << pos;
+
+        if ((x | o) & mask) return;
+
+        if (xTurn) {
+            x |= mask;
+        } else {
+            o |= mask;
         }
     }
 
-    if (ranges::count(board, '.') == 0) {
-        board_score_cache[board] = 0;
+    void undo(int pos, bool xTurn) {
+        uint16_t mask = 1u << pos;
+
+        if (!((x | o) & mask)) return;
+
+        if (xTurn) {
+            x ^= mask;
+        } else {
+            o ^= mask;
+        }
+    }
+
+    int check_winner() const {
+        static constexpr uint16_t winning_positions[] = {
+            0b000000111,
+            0b000111000,
+            0b111000000,
+            0b100100100,
+            0b010010010,
+            0b001001001,
+            0b100010001,
+            0b001010100
+        };
+
+        for (uint16_t win_mask : winning_positions) {
+            if ((x & win_mask) == win_mask) return 1;
+            if ((o & win_mask) == win_mask) return -1;
+        }
+
         return 0;
     }
 
-    int weights[9] = {2,1,2,1,8,1,2,1,2};
+    bool check_occupied(int pos) const {
+        uint16_t mask = 1u << pos;
+
+        if ((x | o) & mask) return true;
+
+        return false;
+    }
+
+    bool is_full() const {
+        uint16_t mask = 0b111111111;
+        if ((x | o) == mask) return true;
+        return false;
+    }
+};
+
+int minimax(Board& b, bool maximizer) {
+    int winner = b.check_winner();
+    if (winner != 0) {
+        return winner;
+    } 
+    if (b.is_full()) {
+        return 0;
+    }
+    int best = maximizer ? -1 : 1;
     for (int i = 0; i < 9; ++i) {
-        if (board[i] == 'X') {
-            score += weights[i];
-        } else if (board[i] == 'O') {
-            score -= weights[i];
+        if (!b.check_occupied(i)) {
+            b.play(i, maximizer);
+            int score = minimax(b, !maximizer);
+            b.undo(i, maximizer);
+
+            if (maximizer) {
+                best = max(best, score);
+                if (best == 1) return best;
+            } else {
+                best = min(best, score);
+                if (best == -1) return best;
+            }
         }
     }
-
-    board_score_cache[board] = score;
-    return score;
+    return best;
 }
 
-unordered_map<string, int> minimax_cache;
-int minimax(const string& board, int turn, int alpha = INT_MIN, int beta = INT_MAX) {
-    string cache_key = board + ((turn == 1) ? "1" : "-1");
-    if (auto search = minimax_cache.find(cache_key); search != minimax_cache.end()) {
-        return search->second;
-    }
-    const int score = score_board(board);
-    if (ranges::count(board, '.') == 0 or score == numeric_limits<int>::max() or score == numeric_limits<int>::min()) {
-        minimax_cache[cache_key] = score;
-        return score;
-    }
-
-    if (turn == 1) {
-        //turn = 1 / X or maximizer
-        for (int i = 0; i < 9; ++i) {
-            if (board[i] == '.') {
-                string new_board = board;
-                new_board[i] = 'X';
-                int value = minimax(new_board, -1, alpha, beta);
-                if (value > alpha) alpha = value;
-                if (alpha >= beta) {
-                    minimax_cache[cache_key] = alpha;
-                    return alpha;
-                }
+void find_best(Board& b, bool maximizer) {
+    int best_index = -1;
+    int best_score = maximizer ? -2 : 2;
+    for (int i : {4,0,2,6,8,1,3,5,7}) {
+        if (!b.check_occupied(i)) {
+            b.play(i, maximizer);
+            int score = minimax(b, !maximizer);
+            if ((score > best_score && maximizer) or (score < best_score && !maximizer)) {
+                best_index = i;
+                best_score = score;
             }
-        }
-    } else {
-        // turn = 0 / O or minimizer
-        for (int i = 0; i < 9; ++i) {
-            if (board[i] == '.') {
-                string new_board = board;
-                new_board[i] = 'O';
-                int value = minimax(new_board, 1, alpha, beta);
-                if (value < beta) beta = value;
-                if (beta <= alpha) {
-                    minimax_cache[cache_key] = beta;
-                    return beta;
-                }
+            b.undo(i, maximizer);
+            if ((score == 1 && maximizer) or (score == -1 && !maximizer)) {
+                break;
             }
         }
     }
 
-    if (turn == 1) {
-        minimax_cache[cache_key] = alpha;
-        return alpha;
-    } else {
-        minimax_cache[cache_key] = beta;
-        return beta;
-    }
+    cout << (maximizer ? 'X' : 'O') << "'s best move is: " << to_string(best_index + 1) << endl;
+    b.play(best_index, maximizer);
 }
-
-string find_best(const string& board, int turn) {
-    string best_board = board;
-    if (turn == 1) {
-        int best_score = INT_MIN;
-        for (int i = 0; i < 9; ++i) {
-            if (board[i] == '.') {
-                string new_board = board;
-                new_board[i] = 'X';
-                int score = minimax(new_board, -1);
-                if (score > best_score) {
-                    best_score = score;
-                    best_board = new_board;
-                }
-            }
-        }
-    } else {
-        int best_score = INT_MAX;
-        for (int i = 0; i < 9; ++i) {
-            if (board[i] == '.') {
-                string new_board = board;
-                new_board[i] = 'O';
-                int score = minimax(new_board, 1);
-                if (score < best_score) {
-                    best_score = score;
-                    best_board = new_board;
-                }
-            }
-        }
-    }
-    for (int i = 0; i < 9; ++i) {
-        if (board[i] != best_board[i]) {
-            cout << ((turn == 1) ? 'X' : 'O') << "'s best move position is: " << (i + 1) << endl;
-            break;
-        }
-    }
-    return best_board;
-}
-
-
 
 int main() {
-    string board = ".........";
-    
-    int turn = 0;
-    int response = 0;
-    cout << "Are you player 1 or 2?: ";
+    Board b;
+
+    bool maximizer;
+    char response;
+    cout << "Are you going first? (y or n): ";
     cin >> response;
-    if (response == 1) {
-        turn = 1;
-    } else {
-        turn = -1;
-        int index = -1;
-        cout << "What position did \"X\" play? (1-9): ";
-        cin >> index;
-        --index;
-        board[index] = 'X';
+    if (response == 'y') {
+        maximizer = true;
+    } else if (response == 'n') {
+        maximizer = false;
     }
-    
-    int score = -1;
-    while (true) {
-        cout << "\n\n\n\n\nCurrent Board:" << endl;
-        print_board(board);
-        board = find_best(board, turn);
-        score = score_board(board);
-        if (ranges::count(board, '.') == 0 or score == INT_MAX or score == INT_MIN) {
-            cout << "Game Over!" << endl;
-            break;
-        }
-        turn = -turn;
-        int index = -1;
-        cout << "What position did \"" << ((turn == 1) ? 'X' : 'O') << "\" play? (1-9): ";
-        cin >> index;
-        --index;
-        board[index] = (turn == 1) ? 'X' : 'O';
-        score = score_board(board);
-        if (ranges::count(board, '.') == 0 or score == INT_MAX or score == INT_MIN) {
-            cout << "Game Over!" << endl;
-            break;
-        }
-        turn = -turn;
-        cout << endl;
+
+    if (!maximizer) {
+        cout << "\nCurrent board: " << endl;
+        b.print();
+        cout << "What position did your opponent play?: ";
+        int op_move;
+        cin >> op_move;
+        --op_move;
+        b.play(op_move, true);
     }
-    if (score == INT_MAX) {
-        cout << "Player \"X\" wins!" << endl;
-    } else if (score == INT_MIN) {
-        cout << "Player \"O\" wins!" << endl;
-    } else {
-        cout << "Draw! Neither player wins!" << endl;
+
+    while (!(b.check_winner() or b.is_full())) {
+        cout << "\nCurrent board: " << endl;
+        b.print();
+        find_best(b, maximizer);
+        if (b.check_winner() or b.is_full()) break;
+
+        maximizer = !maximizer;
+        cout << "\nCurrent board: " << endl;
+        b.print();
+        cout << "What position did your opponent play?: ";
+        int op_move;
+        cin >> op_move;
+        --op_move;
+        b.play(op_move, maximizer);
+        maximizer = !maximizer;
     }
 }
