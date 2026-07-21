@@ -62,7 +62,7 @@ struct Board {
             0b001010100
         };
 
-        for (uint16_t win_mask : winning_positions) {
+        for (const uint16_t& win_mask : winning_positions) {
             if ((x & win_mask) == win_mask) return 1;
             if ((o & win_mask) == win_mask) return -1;
         }
@@ -79,9 +79,8 @@ struct Board {
     }
 
     bool is_full() const {
-        uint16_t mask = 0b111111111;
-        if ((x | o) == mask) return true;
-        return false;
+        static constexpr uint16_t mask = 0b111111111;
+        return ((x | o) == mask);
     }
 };
 

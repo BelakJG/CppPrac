@@ -13,6 +13,10 @@
 using namespace std;
 
 int score_inner_board(const string& board) {
+    static unordered_map<string, int> inner_cache;
+    if (auto search = inner_cache.find(board); search != inner_cache.end()) {
+        return search->second;
+    }
     int winning_positions[8][3] = {
         //Horizontals
         {0,1,2},
@@ -44,9 +48,11 @@ int score_inner_board(const string& board) {
 
         //check for winners
         if (XCount == 3) {
+            inner_cache[board] = INT_MAX;
             return INT_MAX;
         }
         if (OCount == 3) {
+            inner_cache[board] = INT_MIN;
             return INT_MIN;
         }
 
@@ -62,6 +68,7 @@ int score_inner_board(const string& board) {
 
     //check if draw
     if (ranges::count(board, '.') == 0) {
+        inner_cache[board] = 0;
         return 0;
     }
 
@@ -75,6 +82,7 @@ int score_inner_board(const string& board) {
         }
     }
 
+    inner_cache[board] = score;
     return score;
 }
 
@@ -261,7 +269,7 @@ struct BestMove {
 
 BestMove find_best(uint64_t& hash, auto& board, int turn, int next_outer) {
     static bool first_turn = true;
-    static int max_depth = 6;
+    static int max_depth = 7;
     bool first_move = true;
     
     vector<int> valid_metas;
@@ -310,64 +318,69 @@ BestMove find_best(uint64_t& hash, auto& board, int turn, int next_outer) {
     }
 
     cout << "Best Move | Outer: " << best.played_outer + 1 << " Inner: " << best.played_inner + 1 << " Score: " << best.score << endl;
-    static int moves_since_inc = 0;
-    if (max_depth < 9) {
-        ++moves_since_inc;
-        if (moves_since_inc >= 3) {
-            ++max_depth;
-            moves_since_inc = 0;
-        }
-    }
     return best;
 }
 
+bool game_tied(const array<string, 9>& board) {
+    for (const string& inner : board) {
+        int score = score_inner_board(inner);
+        if (score != INT_MAX and score != INT_MIN and !(score == 0 and ranges::count(inner, '.') == 0)) return false;
+    }
+
+    return true;
+}
+
 int main() {
-    array<string, 9> board = {".........",".........",".........",".........",".........",".........",".........",".........","........."};
-    
-    int last_forced = 9;
-    int turn = 1;
-    uint64_t hash = zobrist.compute(board, last_forced);
-    while (score_meta_board(board) != INT_MAX and score_meta_board(board) != INT_MIN) {
-        try {
-            char move_symbol = ((turn == 1) ? 'X' : 'O');
-            BestMove best = find_best(hash, board, turn, last_forced);
-            board = best.board;
+    bool play_again = true;
+    while (play_again) {
+        array<string, 9> board = {".........",".........",".........",".........",".........",".........",".........",".........","........."};
+        int last_forced = 9;
+        int turn = 1;
+        uint64_t hash = zobrist.compute(board, last_forced);
+        while (score_meta_board(board) != INT_MAX and score_meta_board(board) != INT_MIN and !game_tied(board)) {
+            try {
+                char move_symbol = ((turn == 1) ? 'X' : 'O');
+                BestMove best = find_best(hash, board, turn, last_forced);
+                board = best.board;
 
-            int next_forced = valid_board(board[best.played_inner]) ? best.played_inner : 9;
-            zobrist.update(hash, best.played_outer, best.played_inner, move_symbol, last_forced, next_forced);
+                int next_forced = valid_board(board[best.played_inner]) ? best.played_inner : 9;
+                zobrist.update(hash, best.played_outer, best.played_inner, move_symbol, last_forced, next_forced);
 
-            if (score_meta_board(board) == INT_MAX or score_meta_board(board) == INT_MIN) break;
-            turn = -turn;
-            move_symbol = ((turn == 1) ? 'X' : 'O');
-            last_forced = next_forced;
+                if (score_meta_board(board) == INT_MAX or score_meta_board(board) == INT_MIN or game_tied(board)) break;
+                turn = -turn;
+                move_symbol = ((turn == 1) ? 'X' : 'O');
+                last_forced = next_forced;
 
-            if (last_forced != 9) {
-                cout << "Opponent turn | Outer: " << last_forced + 1 << " Inner: ";
-                int op_inner;
-                cin >> op_inner;
-                --op_inner;
+                if (last_forced != 9) {
+                    cout << "Opponent turn | Outer: " << last_forced + 1 << " Inner: ";
+                    int op_inner;
+                    cin >> op_inner;
+                    --op_inner;
 
-                board[last_forced][op_inner] = move_symbol;
-                next_forced = (valid_board(board[op_inner]) ? op_inner : 9);
-                zobrist.update(hash, last_forced, op_inner, move_symbol, last_forced, next_forced);
-            } else {
-                cout << "Opponent turn | Outer: ";
-                int actual_outer;
-                cin >> actual_outer;
-                --actual_outer;
-                cout << "Inner: ";
-                int op_inner;
-                cin >> op_inner;
-                --op_inner;
-                board[actual_outer][op_inner] = move_symbol;
-                next_forced = (valid_board(board[op_inner]) ? op_inner : 9);
-                zobrist.update(hash, actual_outer, op_inner, move_symbol, last_forced, next_forced);
+                    board[last_forced][op_inner] = move_symbol;
+                    next_forced = (valid_board(board[op_inner]) ? op_inner : 9);
+                    zobrist.update(hash, last_forced, op_inner, move_symbol, last_forced, next_forced);
+                } else {
+                    cout << "Opponent turn | Outer: ";
+                    int actual_outer;
+                    cin >> actual_outer;
+                    --actual_outer;
+                    cout << "Inner: ";
+                    int op_inner;
+                    cin >> op_inner;
+                    --op_inner;
+                    board[actual_outer][op_inner] = move_symbol;
+                    next_forced = (valid_board(board[op_inner]) ? op_inner : 9);
+                    zobrist.update(hash, actual_outer, op_inner, move_symbol, last_forced, next_forced);
+                }
+                turn = -turn;
+                last_forced = next_forced;
+                cout << endl;
+            } catch (const runtime_error& e) {
+                cerr << e.what() << endl;
             }
-            turn = -turn;
-            last_forced = next_forced;
-            cout << endl;
-        } catch (const runtime_error& e) {
-            cerr << e.what() << endl;
         }
+        cout << game_tied(board) << endl;
+        cout << "Game Over!\n" << endl;
     }
 }

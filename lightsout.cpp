@@ -1,110 +1,109 @@
 #include <iostream>
 #include <cstdint>
 #include <vector>
+#include <cmath>
 
 using namespace std;
 
 struct Board {
-    void initilize(const vector<int>& lights) {
-        switches = 0;
-        for (int i = 24; i >= 0; --i) {
-            switches <<= 1u;
-            switches |= lights[i];
+    Board(const auto& lights_container) {
+        num_lights = lights_container.size();
+        for (int i = 0; i < num_lights; ++i) {
+            lights |= lights_container[i] << i;
         }
-        switch_solution = switches;
 
-        for (int r = 0; r < 5; r++) {
-            for (int c = 0; c < 5; c++) {
-
-                uint32_t m = 0;
-
-                auto set = [&](int rr, int cc) {
-                    if (rr >= 0 && rr < 5 && cc >= 0 && cc < 5) {
-                        m |= 1u << (rr * 5 + cc);
-                    }
-                };
-
-                set(r,c);
-                set(r-1,c);
-                set(r+1,c);
-                set(r,c-1);
-                set(r,c+1);
-
-                switch_masks[r*5+c] = m;
-            }
-        }
-    }
-
-    void toggle_switch(int pos) {
-        switches ^= switch_masks[pos];
+        initialize_masks();
     }
 
     void print() {
-        for (int row = 0; row < 5; ++row) {
-            for (int col = 0; col < 5; ++col) {
-                int offset = (row * 5) + col;
-                cout << ((switches & (1u << offset)) ? "X " : "O ");
+        int length = sqrt(num_lights);
+        for (int row = 0; row < length; ++row) {
+            for (int col = 0; col < length; ++col) {
+                int offset = (row * length) + col;
+                cout << ((lights & 1u << offset) ? "X " : "O ");
             }
             cout << endl;
         }
     }
 
     void solve() {
-        for (int col = 0; col < 25; ++col) {
+        for (int col = 0; col < num_lights; ++col) {
             int pivot = -1;
-            for (int row = col; row < 25; ++row) {
-                if (switch_masks[row] & 1u << col) {
+            for (int row = col; row < num_lights; ++row) {
+                if (toggle_masks[row] & 1u << col) {
                     pivot = row;
                     break;
                 }
             }
-
             if (pivot == -1) continue;
+            swap(toggle_masks[col], toggle_masks[pivot]);
 
-            swap(switch_masks[col], switch_masks[pivot]);
-            bool a = (switch_solution >> col) & 1;
-            bool b = (switch_solution >> pivot) & 1;
-            if (a != b) {
-                switch_solution ^= 1u << col;
-                switch_solution ^= 1u << pivot;
-            }
-
-            for (int row = 0; row < 25; ++row) {
+            for (int row = 0; row < num_lights; ++row) {
                 if (row == col) continue;
-
-                if (switch_masks[row] & 1u << col) {
-                    switch_masks[row] ^= switch_masks[col];
-                    if (switch_solution & 1u << col) {
-                        switch_solution ^= 1u << row;
-                    }
+                if (toggle_masks[row] & 1u << col) {
+                    toggle_masks[row] ^= toggle_masks[col];
                 }
             }
         }
-        
-        for (int row = 0; row < 5; ++row) {
-            for (int col = 0; col < 5; ++col) {
-                int offset = (row * 5) + col;
-                cout << ((switch_solution & (1u << offset)) ? "X " : "O ");
+
+        solution = 0;
+        for (int i = 0; i < num_lights; ++i) {
+            if (toggle_masks[i] & 1u << num_lights) {
+                solution |= 1u << i;
+            };
+        }
+    }
+
+    void print_solution() {
+        int length = sqrt(num_lights);
+        for (int row = 0; row < length; ++row) {
+            for (int col = 0; col < length; ++col) {
+                int offset = (row * length) + col;
+                cout << ((solution & 1u << offset) ? "X " : "O ");
             }
             cout << endl;
         }
     }
 private:
-    uint32_t switch_masks[25];
-    uint32_t switches;
-    uint32_t switch_solution;
+    int num_lights;
+    uint32_t lights = 0;
+    vector<uint32_t> toggle_masks;
+    uint32_t solution;
+
+    void initialize_masks() {
+        int length = sqrt(num_lights);
+        for (int row = 0; row < length; ++row) {
+            for (int col = 0; col < length; ++col) {
+                uint32_t mask = 1u << ((row * length) + col);
+                auto toggle = [&mask, length](int rr, int cc) {
+                    if ((rr >= 0 and rr < length) and (cc >= 0 and cc < length)) {
+                        mask |= 1u << ((rr * length) + cc);
+                    }
+                };
+
+                toggle(row - 1, col);
+                toggle(row + 1, col);
+                toggle(row, col - 1);
+                toggle(row, col + 1);
+                
+                uint32_t aug = (lights & 1u << ((row * length) + col) ? 1 : 0);
+                mask |= aug << num_lights;
+
+                toggle_masks.push_back(mask);
+            }
+        }
+    }
 };
 
 int main() {
-    vector<int> lights = {1,0,0,0,0,
-                            0,1,0,0,1,
-                            1,0,1,1,0,
-                            1,0,0,0,1,
-                            0,0,1,0,1};
-    
-    Board b;
-    b.initilize(lights);
+    vector<bool> lights = {1,0,0,1,0,
+                            0,1,0,1,0,
+                            0,0,0,1,1,
+                            0,1,1,1,0,
+                            0,0,1,1,1};
+    Board b(lights);
     b.print();
-    cout << endl;
     b.solve();
+    cout << endl;
+    b.print_solution();
 }
